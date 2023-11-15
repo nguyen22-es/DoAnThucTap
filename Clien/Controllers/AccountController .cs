@@ -11,23 +11,36 @@ namespace Client.Controllers
         {
             return View();
         }
-        public IActionResult Login()
+       /* public IActionResult Login()
         {
             return Challenge(new AuthenticationProperties
             {
                 RedirectUri = "/"
             });
-        }
+        }*/
+        public IActionResult Login(string redirectUri)
+        {
+            if (string.IsNullOrWhiteSpace(redirectUri))
+            {
+                redirectUri = Url.Content("~/");
+            }
 
+            if (HttpContext.User.Identity.IsAuthenticated)
+            {
+                Response.Redirect(redirectUri);
+            }
+
+            return Challenge(
+                new AuthenticationProperties
+                {
+                    RedirectUri = redirectUri
+                },
+                OpenIdConnectDefaults.AuthenticationScheme);
+        }
         public async Task Logout()
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            await HttpContext.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme, new AuthenticationProperties
-            {
-                RedirectUri = "/"
-            });
-
-           
+            await HttpContext.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
         }
     }
 }

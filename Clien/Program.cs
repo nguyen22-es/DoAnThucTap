@@ -1,65 +1,51 @@
 ﻿
-using IdentityServer4.Services;
+
+using Client.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
 using System.Configuration;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
-//builder.Services.AddHttpClient();
 
 
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddHttpClient("IdentityClient", client =>
-{
-    client.BaseAddress = new Uri("https://localhost:5443");
-    client.DefaultRequestHeaders.Clear();
-    client.DefaultRequestHeaders.Add(HeaderNames.Accept, "application/json");
-});
+builder.Services.Configure<IdentityServerSettings>(builder.Configuration.GetSection("IdentityServerSettings"));
+builder.Services.AddScoped<ITokenService, TokenService>();
 
-
+builder.Services.AddHttpClient();
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
 })
-   .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme)
-   .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
-   {
-       options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-      // options.SignOutScheme = OpenIdConnectDefaults.AuthenticationScheme;
-       options.Authority = "https://localhost:5443"; // Đường dẫn đến IdentityServer
-       options.ClientId = "WebApp"; // ClientId của ứng dụng web client
-       options.ClientSecret = "secret"; // ClientSecret nếu có
-       options.ResponseType = "code";
-       options.SaveTokens = true;
-       options.GetClaimsFromUserInfoEndpoint = true;
-       options.RequireHttpsMetadata = false;
-       // Cấu hình các phạm vi (scopes) cần thiết
-       options.Scope.Add("openid");
-       options.Scope.Add("profile");
-       options.Scope.Add("api.WebApp");
-  
-       options.TokenValidationParameters = new TokenValidationParameters
-       {
-           ValidateIssuer = true,
-           ValidateAudience = true,
-           ValidateLifetime = true,
-           ValidateIssuerSigningKey = true
-       };
-   });
+.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme)
+.AddOpenIdConnect(
+    OpenIdConnectDefaults.AuthenticationScheme,
+    options =>
+    {
+         options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+         options.SignOutScheme = OpenIdConnectDefaults.AuthenticationScheme;
+         options.Authority = builder.Configuration["InteractiveServiceSettings:AuthorityUrl"];
+         options.ClientId = builder.Configuration["InteractiveServiceSettings:ClientId"];
+         options.ClientSecret = builder.Configuration["InteractiveServiceSettings:ClientSecret"];
+
+         options.ResponseType = "code";
+         options.SaveTokens = true;
+         options.GetClaimsFromUserInfoEndpoint = true;
+         options.RequireHttpsMetadata = false;
 
 
-
-builder.Services.AddHttpClient();
-
-
+     }
+ );
 
 var app = builder.Build();
 
@@ -78,6 +64,11 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+    pattern: "{controller=Home}/{action=Index}/{id?}").RequireAuthorization();
+
+
+
+
+
 
 app.Run();

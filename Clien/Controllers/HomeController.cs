@@ -1,11 +1,16 @@
-﻿using Client.Models;
+﻿using Azure.Core;
+using Client.Models;
+using IdentityModel.Client;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SocialNetworking.Models;
 using System.Diagnostics;
+using System.Net;
 using System.Net.Http.Headers;
+using System.Security.Policy;
 using System.Text.Json;
+using static System.Net.WebRequestMethods;
 
 namespace Client.Controllers
 {
@@ -27,46 +32,49 @@ namespace Client.Controllers
 
 
       
-        public async Task<IActionResult> Usuario()
-        {
-
-
-            var accessToken = await HttpContext.GetTokenAsync("access_token");
-
-            // Kiểm tra xem accessToken có tồn tại không
-            if (string.IsNullOrEmpty(accessToken))
+   
+            public async Task<IActionResult> Usuario()
             {
-                // Xử lý trường hợp không có accessToken
-                return null;
+                var client = _httpClientFactory.CreateClient();
+
+                // Lấy access token từ cookie
+                var accessToken = await HttpContext.GetTokenAsync("access_token");
+
+                // Thêm token vào header của request
+                client.SetBearerToken(accessToken);
+
+                // Gọi API
+                var apiResponse = await client.GetAsync("https://localhost:5443/api/User");
+
+                if (apiResponse.IsSuccessStatusCode)
+                {
+                    // Xử lý dữ liệu từ API
+                    var content = await apiResponse.Content.ReadAsStringAsync();
+                return View(content);
+                    // ...
+                }
+                else
+                {
+                    // Xử lý lỗi
+                    var errorResponse = await apiResponse.Content.ReadAsStringAsync();
+                    // ...
+                }
+
+                // Rest of your code...
+
+                return View();
             }
-
-            // Tạo một HttpClient từ IHttpClientFactory
-            var httpClient = _httpClientFactory.CreateClient();
-
-            // Đặt mã thông báo truy cập trong tiêu đề yêu cầu
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-
-            // Thực hiện yêu cầu API
-            HttpResponseMessage response = await httpClient.GetAsync("https://localhost:5443" + "/api/user");
-
-            if (response.IsSuccessStatusCode)
-            {
-                // Xử lý kết quả thành công
+        
+    
 
 
 
-                 var   Shops = await response.Content.ReadFromJsonAsync<List<UserViewModel>>();
-                return View(Shops);
 
-            }
-            //   else
-            //  {
-            // Xử lý kết quả không thành công
-            //      return View("Error");
-            //   }
-            return View();
-        }
- 
+
+
+
+
+
         public async Task<IActionResult> Index()
         {
             return View();
